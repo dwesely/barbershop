@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Parses xml from barbershopwiki.com to pull out quartet singer names and parts
-This is just meant for the quartet pages, not the championship lists
+
+Export pages of "Quartets" category as Barbershop+Wiki+Project-quartets.xml
+Export pages of "List of Champions" category as Barbershop+Wiki+Project-listofchampions.xml
 """
 import re
 import barbershop
@@ -32,27 +34,31 @@ def getChampLinkName(champ_description):
     else:
         return('{}'.format(champdescriptionsplit[0]))
         
-bsfile = open('Barbershop+Wiki+Project-quartets.xml','r+')
-bswikihomefile = open('bswikihome.txt','w')
-
 qsidx = 0
 maxlengthforjunktext = 150;
 
-quartetList    = []
-singerList     = []
-quartetterList = []
+quartetList        = []
+singerList         = []
+quartetterList     = []
 pagesWithNoSingers = []
-textWithParens = re.compile(r'(?:[^,(]|\([^)]*\))+')
+textWithParens     = re.compile(r'(?:[^,(]|\([^)]*\))+')
 
+#Open file for results summary
+bswikihomefile = open('bswikihome.txt','w')
+
+
+#Parse quartet file
+bsfile = open('Barbershop+Wiki+Project-quartets.xml','r+')
 print('Parsing quartets...')
 
 allpages = re.split(r'<page>',bsfile.read())
 for page in allpages:
-    qtitle = ''
-    mypart = ''
-    mylink = ''
+    qtitle  = ''
+    mypart  = ''
+    mylink  = ''
     myyears = ''    
     thisQuartetter = []
+    
     alllines = re.split(r'\n',page)
     for line in alllines:
         #print(line.find('<title>'))
@@ -145,6 +151,7 @@ print('*{} Singers identified.'.format(len(barbershop.Singer.singers_dict.values
 bsfile.close()
 
 
+#Parse the List of Champions pages
 bsfile = open('Barbershop+Wiki+Project-listofchampions.xml','r+')
 #TODO: If the name has a link to a quartet instead of to the name page, strip the quartet link
 #TODO: Add empty championships to quartets
@@ -152,19 +159,19 @@ allpages = re.split(r'<page>',bsfile.read())
 champlistsWithoutSingers = set([])
 bswikihomefile.write('\n==== Table of Latest Recorded Championship Details ====\n{| border="1" class="wikitable sortable"\n!  Championship\n!  Latest Year Recorded')
 for page in allpages:
-    alllines = re.split(r'\n',page)
-    champ_description = ''
-    champlinkname = ''
-    champlink = ''
-    tenor = ''
-    lead = ''
-    bari = ''
-    bass = ''
-    year = ''
-    qtitle = ''
-    thisQuartetter = []
-    hasQuartetters = False
-    hasAnyQuartetters = False
+    alllines           = re.split(r'\n',page)
+    champ_description  = ''
+    champlinkname      = ''
+    champlink          = ''
+    tenor              = ''
+    lead               = ''
+    bari               = ''
+    bass               = ''
+    year               = ''
+    qtitle             = ''
+    thisQuartetter     = []
+    hasQuartetters     = False
+    hasAnyQuartetters  = False
     latestYearRecorded = ''
     
     starttlbbtable = False
@@ -213,9 +220,9 @@ for page in allpages:
                     hasQuartetters = True
                     hasAnyQuartetters = True
                     tenor = namelist.group(1).strip(' \t\n\r')
-                    lead = namelist.group(2).strip(' \t\n\r')
-                    bari = namelist.group(3).strip(' \t\n\r')
-                    bass = namelist.group(4).strip(' \t\n\r')
+                    lead  = namelist.group(2).strip(' \t\n\r')
+                    bari  = namelist.group(3).strip(' \t\n\r')
+                    bass  = namelist.group(4).strip(' \t\n\r')
                     thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Tenor',tenor).add_championship(champObj)
                     thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Lead',lead).add_championship(champObj)
                     thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Bari',bari).add_championship(champObj)
@@ -233,6 +240,7 @@ bswikihomefile.write('\n|}')
 
 bsfile.close()
 
+#Identify List of CHampions pages without individual singers listed
 bswikihomefile.write('\n\n==== Champ lists without singers listed ====')
 for champObj in sorted(champlistsWithoutSingers, key=lambda x: x.name):
     if champObj.name.find('horus')>0 or len(champObj.name)<1:
@@ -240,14 +248,10 @@ for champObj in sorted(champlistsWithoutSingers, key=lambda x: x.name):
     else:
         bswikihomefile.write('\n*[[{}]] lists no singers.'.format(champObj.name))
 
+
+#This section generates stub pages for quartets
 xmloutfile = open('xmlpagesout.xml','w')
-potential_disambiguation_list = []
 for quartet in barbershop.Quartet.quartets_dict.values():
-    if len(quartet.members)>7:
-        potential_disambiguation_list.append(quartet)
-        if VERBOSE:
-            for quartetter in quartet.members:
-                print('{} ({}): {}'.format(quartetter.quartet.title,quartetter.part,quartetter.name))
     if quartet.has_page:
         if VERBOSE:
             if quartet.has_four_parts():
@@ -312,6 +316,7 @@ for quartet in barbershop.Quartet.quartets_dict.values():
         xmloutfile.write(xmlheader)
         xmloutfile.write('\n')
 
+#Identify individual quartet pages that have no singers identified in them
 bswikihomefile.write('\n\n==== Quartet pages without singers listed ({}) ===='.format(len(pagesWithNoSingers)))
 for quartet in sorted(pagesWithNoSingers, key=lambda x: x.title):
     if len(quartet.members)>0:
@@ -319,7 +324,7 @@ for quartet in sorted(pagesWithNoSingers, key=lambda x: x.title):
         for quartetter in quartet.members:
             bswikihomefile.write('\n*{} - {} (Championship: {})'.format(quartetter.part, quartetter.name, quartetter.championships[0].link))
 
-
+#Identify quartets that have the most awards
 bswikihomefile.write('\n\n==== Quartets with the most awards ====')
 topten = 0
 for quartet in sorted(barbershop.Quartet.quartets_dict.values(), key=lambda x: len(x.championships), reverse=True):
@@ -329,6 +334,17 @@ for quartet in sorted(barbershop.Quartet.quartets_dict.values(), key=lambda x: l
         for championship in sorted(quartet.championships, key=lambda x: x.year, reverse=True):
             bswikihomefile.write('\n*{}'.format(championship.link))
 
+bswikihomefile.write('\n\n==== Quartets with the most types of awards ====')
+topten = 0
+for quartet in sorted(barbershop.Quartet.quartets_dict.values(), key=lambda x: x.get_unique_championship_count(), reverse=True):
+    if topten<10:
+        topten = topten+1
+        bswikihomefile.write('\n[[{}]] has {} awards:'.format(quartet.title,len(quartet.championships)))
+        for championship in sorted(quartet.championships, key=lambda x: x.year, reverse=True):
+            bswikihomefile.write('\n*{}'.format(championship.link))
+
+
+#Identify singers that have the most awards
 bswikihomefile.write('\n\n==== Singers with the most awards ====')
 topten = 0
 for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: len(x.championships), reverse=True):
@@ -336,8 +352,18 @@ for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: len(
         topten = topten+1
         bswikihomefile.write('\n[[{}]] has {} awards:'.format(singer.name,len(singer.championships)))
         for championship in sorted(singer.championships, key=lambda x: x.year, reverse=True):
-            bswikihomefile.write('\n*{} with [[{}]]'.format(championship.link, championship.quartetters[0].quartet.title))
+            bswikihomefile.write('\n*{} with [[{}]] ({})'.format(championship.link, championship.quartetters[0].quartet.title, championship.quartetters[0].part))
 
+bswikihomefile.write('\n\n==== Singers with the most types of awards ====')
+topten = 0
+for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: x.get_unique_championship_count(), reverse=True):
+    if (topten<10 and not singer.name.find('_')>0): 
+        topten = topten+1
+        bswikihomefile.write('\n[[{}]] has {} awards:'.format(singer.name,len(singer.championships)))
+        for championship in sorted(singer.championships, key=lambda x: x.year, reverse=True):
+            bswikihomefile.write('\n*{} with [[{}]] ({})'.format(championship.link, championship.quartetters[0].quartet.title, championship.quartetters[0].part))
+
+#Identify the singers that have been members of the most quartets.
 bswikihomefile.write('\n\n==== Singers in the most quartets ====')
 topten = 0
 for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: len(x.quartets), reverse=True):
@@ -347,7 +373,7 @@ for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: len(
         for quartet in sorted(singer.quartets, key=lambda x: x.title):
             bswikihomefile.write('\n*[[{}]]'.format(quartet.title))
 
-#list all singers
+#List all singers
 dbsingerfile = open('db_singer.txt','w')
 dbsingerfile.write('Name,Link,Partlist')
 
@@ -357,6 +383,18 @@ for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: x.na
         dbsingerfile.write('{} '.format(quartetter.part))
 
 dbsingerfile.close()
+
+
+#Identify quartets with a large number of singers which may indicate 
+#a need for disambiguation pages
+disambiguationThresholdSingerCount = 7
+potential_disambiguation_list = []
+for quartet in barbershop.Quartet.quartets_dict.values():
+    if len(quartet.members) > disambiguationThresholdSingerCount:
+        potential_disambiguation_list.append(quartet)
+        if VERBOSE:
+            for quartetter in quartet.members:
+                print('{} ({}): {}'.format(quartetter.quartet.title,quartetter.part,quartetter.name))
 
 bswikihomefile.write('\n\n==== Potential disambiguation pages needed ({}) ===='.format(len(potential_disambiguation_list)))
 topten = 0
@@ -375,11 +413,14 @@ with open('potentialDisambiguation.txt','w') as disambout:
             disambout.write('\n*{} - {} (Championship: {})'.format(quartetter.part, quartetter.name, champlink))
         topten = topten+1
 disambout.close()
+
 #==============================================================================
 # for quartet in barbershop.Quartet.quartets_dict.values():
 #     if quartet.has_four_parts():
 #         print('{}:\n\t{}, {}, {}, {}'.format(quartet.title,quartet.tenor.name,quartet.lead.name,quartet.bari.name,quartet.bass.name))
 #==============================================================================
+
+#Write each quartet that has any singers identified
 with open('fullQuartetList.txt','w') as fullQuartetList:
     for quartet in sorted(barbershop.Quartet.quartets_dict.values(), key=lambda x: x.title):
         fullQuartetList.write('\n\n[[{}]] has {} members:'.format(quartet.title,len(quartet.members)))
@@ -391,6 +432,7 @@ with open('fullQuartetList.txt','w') as fullQuartetList:
                     champlink = quartetter.championships[0].link
                     fullQuartetList.write(' {}'.format(champlink))
 fullQuartetList.close()
+
 print('Quartets, including those listed in the ''List of Champions'' category:\n*{} Quartets identified.'.format(len(barbershop.Quartet.quartets_dict.values())))
 print('*{} Singers identified.'.format(len(barbershop.Singer.singers_dict.values())))
 
