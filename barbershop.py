@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Sep 02 23:05:10 2015
+
 Purpose:
 Store Barbershop information such as singers, quartets, and quartet championships as related objects, like a database.
 
@@ -34,14 +35,14 @@ class Quartet:
     # if "%s" % (title) not in Quartet.quartets_dict:    
     
     def __init__(self, title):
-        self.title = title
-        self.members = []
-        self.link = '[[{}]]'.format(title)
-        self.tenor = None
-        self.lead = None
-        self.bari = None
-        self.bass = None
-        self.has_page = False
+        self.title         = title
+        self.members       = []
+        self.link          = '[[{}]]'.format(title)
+        self.tenor         = None
+        self.lead          = None
+        self.bari          = None
+        self.bass          = None
+        self.has_page      = False
         self.championships = set([])
         
         Quartet.quartets_dict[title] = self
@@ -80,6 +81,11 @@ class Quartet:
         tlbb.append(self.bass)
         
         return tlbb
+    def get_unique_championship_count(self):
+        championship_list = set([])
+        for championship in self.championships:
+            championship_list.add(championship.name)
+        return championship_list.__len__()
 
 class Singer:
     singers_dict = {}
@@ -89,14 +95,19 @@ class Singer:
         Singer.singers_dict[name] = self
         self.quartets = set([])
         self.quartetter_parts = []
-        self.championships = []
+        self.championships = set([])
     def add_quartet(self,quartet):
         self.quartets.add(quartet)
     def add_quartetter_part(self,quartetter):
         self.quartetter_parts.append(quartetter)
     def add_championship(self, championship):
-        self.championships.append(championship)
-
+        self.championships.add(championship)
+    def get_unique_championship_count(self):
+        championship_list = set([])
+        for championship in self.championships:
+            championship_list.add(championship.name)
+        return championship_list.__len__()
+        
 def get_quartetterID(qtitle, part, sname):
     return "%s|%s|%s" % (qtitle, part, sname)
 
@@ -213,6 +224,7 @@ def testcase():
     year = '2000'
     champlink = '[[link]]'
     quartetter = get_Quartetter_Object(quartet, 'Bass', singer).add_championship(get_Championship_Object(champ_description,year,champlink))
+    VERBOSE = True
     if VERBOSE:
         print(len(get_Championship_Object(champ_description,year,champlink).quartetters))
     year = '2001'
@@ -224,6 +236,8 @@ def testcase():
     quartetter = get_Quartetter_Object(quartet, 'Bari', newsinger)
     if VERBOSE:
         print(quartetter)
+        thisQuartet = get_Quartet_Object(quartet)
+        print('Number of unique awards: {}'.format(thisQuartet.get_unique_championship_count()))
     #print(quartetter.part)
     #print(quartetter.quartet.title)
     
