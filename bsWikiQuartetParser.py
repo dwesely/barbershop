@@ -352,7 +352,9 @@ for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: len(
         topten = topten+1
         bswikihomefile.write('\n[[{}]] has {} awards:'.format(singer.name,len(singer.championships)))
         for championship in sorted(singer.championships, key=lambda x: x.year, reverse=True):
-            bswikihomefile.write('\n*{} with [[{}]] ({})'.format(championship.link, championship.quartetters[0].quartet.title, championship.quartetters[0].part))
+            for thissinger in championship.quartetters:
+                if thissinger.name == singer.name:
+                    bswikihomefile.write('\n*{} with [[{}]] ({})'.format(championship.link, thissinger.quartet.title, thissinger.part))
 
 bswikihomefile.write('\n\n==== Singers with the most types of awards ====')
 topten = 0
@@ -361,7 +363,9 @@ for singer in sorted(barbershop.Singer.singers_dict.values(), key=lambda x: x.ge
         topten = topten+1
         bswikihomefile.write('\n[[{}]] has {} awards:'.format(singer.name,len(singer.championships)))
         for championship in sorted(singer.championships, key=lambda x: x.year, reverse=True):
-            bswikihomefile.write('\n*{} with [[{}]] ({})'.format(championship.link, championship.quartetters[0].quartet.title, championship.quartetters[0].part))
+            for thissinger in championship.quartetters:
+                if thissinger.name == singer.name:
+                    bswikihomefile.write('\n*{} with [[{}]] ({})'.format(championship.link, thissinger.quartet.title, thissinger.part))
 
 #Identify the singers that have been members of the most quartets.
 bswikihomefile.write('\n\n==== Singers in the most quartets ====')
