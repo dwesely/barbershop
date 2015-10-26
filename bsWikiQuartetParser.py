@@ -28,11 +28,19 @@ def getFirstAndLastName(thisname):
     return(myfname,mylname)
 
 def getChampLinkName(champ_description):
-    champdescriptionsplit = champ_description.split()
-    if champdescriptionsplit[1] != 'Quartet':
-        return('{} {}'.format(champdescriptionsplit[0],champdescriptionsplit[1]))
+    #print(champ_description)
+    champSplit = champ_description.find('Champ')
+    quartSplit = champ_description.find('Quart')
+    if champSplit>0 and quartSplit>0:
+        champdescriptionsplit = min(champSplit, quartSplit)
+    elif champSplit>0:
+        champdescriptionsplit = champSplit
+    elif quartSplit>0:
+        champdescriptionsplit = quartSplit
     else:
-        return('{}'.format(champdescriptionsplit[0]))
+        return(champ_description.strip(' \t\n\r'))
+    #print(champ_description[:champdescriptionsplit])
+    return(champ_description[:champdescriptionsplit].strip(' \t\n\r'))
         
 qsidx = 0
 maxlengthforjunktext = 150;
@@ -430,10 +438,11 @@ with open('fullQuartetList.txt','w') as fullQuartetList:
         fullQuartetList.write('\n\n[[{}]] has {} members:'.format(quartet.title,len(quartet.members)))
         if len(quartet.members)>0:
             #print('[[{}]] has {} members:'.format(quartet.title,len(quartet.members)))
+            #TODO: print all four parts comma-separated to easily place in champion lists
             for quartetter in quartet.members:
                 fullQuartetList.write('\n*{} - {}'.format(quartetter.part, quartetter.name))
                 for championship in quartetter.championships:
-                    champlink = quartetter.championships[0].link
+                    champlink = championship.link
                     fullQuartetList.write(' {}'.format(champlink))
 fullQuartetList.close()
 
