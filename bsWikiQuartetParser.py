@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """
+Created on Wed Sep 02 23:05:10 2015
+
 Parses xml from barbershopwiki.com to pull out quartet singer names and parts
 
 Export pages of "Quartets" category as Barbershop+Wiki+Project-quartets.xml
 Export pages of "List of Champions" category as Barbershop+Wiki+Project-listofchampions.xml
+
+@author: Wesely
 """
 import re
 import barbershop
@@ -165,7 +169,7 @@ bsfile = open('Barbershop+Wiki+Project-listofchampions.xml','r+')
 #TODO: Add empty championships to quartets
 allpages = re.split(r'<page>',bsfile.read())
 champlistsWithoutSingers = set([])
-bswikihomefile.write('\n==== Table of Latest Recorded Championship Details ====\n{| border="1" class="wikitable sortable"\n!  Championship\n!  Latest Year Recorded')
+bswikihomefile.write('\n==== Table of Latest Recorded Championship Details ====\n{| border="1" class="wikitable sortable"\n!  Championship\n!  Earliest Year Recorded\n!  Latest Year Recorded\n!  % With Quartetters')
 for page in allpages:
     alllines           = re.split(r'\n',page)
     champ_description  = ''
@@ -180,7 +184,9 @@ for page in allpages:
     thisQuartetter     = []
     hasQuartetters     = False
     hasAnyQuartetters  = False
+    earliestYearRecorded = ''
     latestYearRecorded = ''
+    withQuartettersCount = 0
     
     starttlbbtable = False
     for line in alllines:
@@ -215,6 +221,8 @@ for page in allpages:
                 year = yearqtitle.group(1)                
                 if year>latestYearRecorded:
                     latestYearRecorded = year
+                if earliestYearRecorded == '' or year < earliestYearRecorded:
+                    earliestYearRecorded = year
                 qtitle = yearqtitle.group(2).strip(' \t\n\r[]')
                 champlink = '[[{}|{} {}]]'.format(champ_description,year,champlinkname)
                 champObj = barbershop.get_Championship_Object(champ_description,year,champlink)
@@ -227,6 +235,7 @@ for page in allpages:
                 if namelist:
                     hasQuartetters = True
                     hasAnyQuartetters = True
+                    withQuartettersCount = withQuartettersCount + 1
                     tenor = namelist.group(1).strip(' \t\n\r')
                     lead  = namelist.group(2).strip(' \t\n\r')
                     bari  = namelist.group(3).strip(' \t\n\r')
@@ -243,7 +252,8 @@ for page in allpages:
             champlink = '[[{}]]'.format(champ_description)        
         champlistsWithoutSingers.add(barbershop.get_Championship_Object(champ_description,year,champlink))
     else:
-        bswikihomefile.write('\n|-\n| [[{}]] || {}'.format(champ_description,latestYearRecorded))
+        percentComplete = 100*withQuartettersCount/(1+float(re.sub("[^0-9^.]", "", latestYearRecorded))-float(re.sub("[^0-9^.]", "", earliestYearRecorded)))
+        bswikihomefile.write('\n|-\n| [[{}]] || {} || {} || {:.0f}%'.format(champ_description,earliestYearRecorded,latestYearRecorded,percentComplete))
 bswikihomefile.write('\n|}')
 
 bsfile.close()
@@ -440,10 +450,16 @@ with open('fullQuartetList.txt','w') as fullQuartetList:
             #print('[[{}]] has {} members:'.format(quartet.title,len(quartet.members)))
             #TODO: print all four parts comma-separated to easily place in champion lists
             for quartetter in quartet.members:
-                fullQuartetList.write('\n*{} - {}'.format(quartetter.part, quartetter.name))
+                fullQuartetList.write('\n*{} - {} ('.format(quartetter.part, quartetter.name))
+                counter = 0;
                 for championship in quartetter.championships:
+                    if counter > 0:
+                        fullQuartetList.write(',')
+                    else:
+                         counter = counter + 1   
                     champlink = championship.link
-                    fullQuartetList.write(' {}'.format(champlink))
+                    fullQuartetList.write('{}'.format(champlink))
+                fullQuartetList.write(')')
 fullQuartetList.close()
 
 print('Quartets, including those listed in the ''List of Champions'' category:\n*{} Quartets identified.'.format(len(barbershop.Quartet.quartets_dict.values())))
