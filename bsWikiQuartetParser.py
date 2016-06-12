@@ -13,23 +13,16 @@ import re
 import barbershop
 
 VERBOSE = False
+
+def cleanNameString(str):
+    # Correct minor formatting issues with name strings
+    cleanedStr = str.replace('&quot;','"').replace(', Jr',' Jr.').replace(', Sr',' Sr.').replace('r.','r').replace(' ,',',').strip(' \t\n\r')
+    if VERBOSE and str != cleanedStr:
+        print('({}) -> ({})'.format(str,cleanedStr))
+    return cleanedStr
         
 def parseQuartetTitle(str):
     return re.search(r'(?<=\>)[^<]*',str).group(0)
-
-def getFirstAndLastName(thisname):
-    mylname = re.search(r'\S+$',thisname)
-    if mylname:
-        mylname = mylname.group(0)
-    else:
-        mylname = ''
-    myfname = re.search(r'.*\s',thisname)
-    if myfname:
-        myfname = myfname.group(0)
-    else:
-        myfname = ''
-    #return('{},{}'.format(mylname,myfname.strip(' \t\n\r[]')))
-    return(myfname,mylname)
 
 def getChampLinkName(champ_description):
     #print(champ_description)
@@ -63,6 +56,47 @@ bswikihomefile = open('bswikihome.txt','w')
 bsfile = open('Barbershop+Wiki+Project-quartets.xml','r+')
 print('Parsing quartets...')
 
+#Compile regex
+
+# Parts are typically identified with Tenor/Lead/Bari/Bass
+partlineRegex = re.compile(r'''
+    ^.{0,10}                    # Spacers
+    (Tenor|Bass|Lead|Bari\w*)   # Part
+    [/A-Za-z]*[ -:]*            # Other info/separator
+    ([^(,<]*)                   # Name
+    \D*[ (]*                    # Separator
+    ([-, 0-9]*)                 # Year(s)
+    ''', re.VERBOSE)
+    
+# Some quartets have singers rotate out over the years, so parts may have
+# multiple singers listed under the same part
+addlpartRegex = re.compile(r'''
+    (\w+[-:])*          # Part
+    ([^(,]*[A-Za-z]*)   # Name
+    [ (]*               # Separator
+    ([-, 0-9]*)         # Year(s)
+    ''', re.VERBOSE)
+
+# Year and Quartet titles are located in the List of Champions pages
+yearqtitleRegex = re.compile(r'''
+    \|\s*               # First column separator
+    (\d+|\d+ \w+)       # Date/Date with season
+    ]*\s*\|{2}\s*       # Second column separator and formatting quotes
+    \'*([^\|]*)         # Quartet title
+    ''', re.VERBOSE)
+
+# TLBB in comma format
+namelistRegex = re.compile(r'''
+    ^[|]\s*                 # Table separator
+    ([^,\|]*[|]*[^,\|]*)    # Tenor
+    [,]\s*                  # Separator
+    ([^,]*)                 # Lead
+    [,]\s*                  # Separator
+    ([^,]*)                 # Bari
+    [,]\s*                  # Separator
+    ([^,]*)                 # Bass
+    ''', re.VERBOSE)
+
 allpages = re.split(r'<page>',bsfile.read())
 for page in allpages:
     qtitle  = ''
@@ -73,14 +107,10 @@ for page in allpages:
     
     alllines = re.split(r'\n',page)
     for line in alllines:
-        #print(line.find('<title>'))
         if line.find('<title>')>0:
-            #print(line)
             qtitle = parseQuartetTitle(line)
-            #print(qtitle)            
         elif line.startswith("      <comment"):
             continue
-            #print('Skipped comment')
         else:
             splitlines = re.split(r'[*]|==',line)
             for splitline in splitlines:
@@ -88,18 +118,14 @@ for page in allpages:
                     continue
 
                 splitline = splitline.replace("..."," ")
-                partline = re.search(r'^.{0,10}(Tenor|Bass|Lead|Bari\w*)[/A-Za-z]*[ -:]*([^(,<]*)\D*[ (]*([-, 0-9]*)',splitline)
+                partline = partlineRegex.search(splitline)
                 if partline:
-                    #print(line)
                     if partline.group(1):
                         mypart = partline.group(1).strip(' \t\n\r')
-                        #print(mypart)
                     else:
                         mypart = ''
                     if partline.group(2):
-                        # TODO: This doesn't catch Jr. or Sr., may want to fix that
-                        myname = partline.group(2).strip(' \t\n\r').replace(', Jr',' Jr.').replace(', Sr',' Sr.').replace('r.','r').strip(' \t\n\r').replace('&quot;','"')
-                        #print(myname)
+                        myname = cleanNameString(partline.group(2))
                         if re.match('[\[]',myname):
                             mylink = myname
                             myname = re.search(r'[[]+([^\|\]]*)',myname).group(1).strip(' \t\n\r')
@@ -110,37 +136,30 @@ for page in allpages:
                         mylink = ''
                     if partline.group(3):
                         myyears = partline.group(3).strip(' \t\n\r')
-                        #print(myyears)
                     else:
                         myyears = ''
 
                     if re.search(r'[,]',splitline):
-                        #print(line)
                         if VERBOSE:
                             print(splitline)
-                        commagroups = textWithParens.findall(splitline)
-                        #commagroups = re.split(r',',splitline)
+                        commagroups = textWithParens.findall(cleanNameString(splitline))
                         for commagroup in commagroups:
-                            addlpart = re.search(r'(\w+[-:])*([^(,]*[A-Za-z]*)[ (]*([-, 0-9]*)',commagroup)
+                            addlpart = addlpartRegex.search(commagroup)
                             if addlpart:
-                                #print(addlpart.group(1))
                                 if addlpart.group(2):
-                                    myname = addlpart.group(2).replace('&quot;','"').replace(', Jr',' Jr.').replace(', Sr',' Sr.').replace('r.','r').strip(' \t\n\r')
+                                    myname = cleanNameString(addlpart.group(2))
                                     if  re.match('[\[]',myname):
                                         mylink = myname
                                         myname = re.search(r'[[]+([^\|\]]*)',myname).group(2).strip(' \t\n\r')
                                     else:
                                         mylink = '[[{}]]'.format(myname)
-                                    #print(myname)
                                     thisQuartetter = barbershop.get_Quartetter_Object(qtitle,mypart,myname)
-                                    #print(myname)
                                 else:
                                     myname = ''
                                     mylink = ''
                                 if addlpart.group(3):
                                     myyears = addlpart.group(3).replace('"','&quot;')
                                     thisQuartetter.set_year(myyears)
-                                    #print(myyears)
                                 else:
                                     myyears = ''
                     else:
@@ -194,7 +213,7 @@ for page in allpages:
         if line.find('<title>')>0:
             #print(line)
             champ_description = re.search(r'(?<=\>)[^<]+',line).group(0)
-            if champ_description == 'ONT Quartet Champions':
+            if champ_description == 'IABS International Quartet Champions':
                 print('\n')
             #print(champ_description)
             champlinkname = getChampLinkName(champ_description)
@@ -204,7 +223,20 @@ for page in allpages:
         elif line.find('Tenor, Lead, Bari')>0 or line.find('Tenor,Lead,Bari')>0:
             starttlbbtable = True
         elif starttlbbtable:
-            yearqtitle = re.search(r'\|\s*(\d*|\d* Spring|\d* Fall)]*\s*\|{2}\s*\'*([^\|]*)',line.replace("'''",""))
+
+            if (champ_description == 'IABS International Quartet Champions') and (year == '2010'):
+                print('\n')
+            if line.strip(' \n\r\t')=='|-':
+                #New table row, clear out the variables
+                tenor              = ''
+                lead               = ''
+                bari               = ''
+                bass               = ''
+                year               = ''
+                qtitle             = ''
+                thisQuartetter     = []
+
+            yearqtitle = yearqtitleRegex.search(line.replace("'''",""))
             #if a year/qtitle is found, print last year/qtitle/singerlist
             if yearqtitle:
                 #if no quartetters were found for previous year, save the quartet anyway
@@ -229,9 +261,8 @@ for page in allpages:
                 #print('\n{},{},'.format(yearqtitle.group(1),yearqtitle.group(2))  )              
             splitlines = re.split(r'[\|]{2}',line.replace(' ,',',').replace('&quot;','"'))
             for splitline in splitlines:     
-                #^[|]\s*([^,\|]*[|]*[^,\|]*)[,]\s*([^,]*)[,]\s*([^,]*)[,]\s*([^,]*)
-                #^[|]\s*([^,\|]*)[,]\s*([^,]*)[,]\s*([^,]*)[,]\s*([^,\']*)
-                namelist = re.search(r'^[|]\s*([^,\|]*[|]*[^,\|]*)[,]\s*([^,]*)[,]\s*([^,]*)[,]\s*([^,]*)',splitline.replace(', Jr',' Jr.').replace(', Sr',' Sr.').replace('r.','r').replace(' ,',','))
+                
+                namelist = namelistRegex.search(cleanNameString(splitline))
                 if namelist:
                     hasQuartetters = True
                     hasAnyQuartetters = True
@@ -241,9 +272,9 @@ for page in allpages:
                     bari  = namelist.group(3).strip(' \t\n\r')
                     bass  = namelist.group(4).strip(' \t\n\r')
                     thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Tenor',tenor).add_championship(champObj)
-                    thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Lead',lead).add_championship(champObj)
-                    thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Bari',bari).add_championship(champObj)
-                    thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Bass',bass).add_championship(champObj)
+                    thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Lead' ,lead ).add_championship(champObj)
+                    thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Bari' ,bari ).add_championship(champObj)
+                    thisQuartetter = barbershop.get_Quartetter_Object(qtitle,'Bass' ,bass ).add_championship(champObj)
                     tlbb = champObj.get_tlbb()
                     if VERBOSE:
                         print('({}) {} {}'.format(len(tlbb),champObj.year,champObj.name))
@@ -252,7 +283,11 @@ for page in allpages:
             champlink = '[[{}]]'.format(champ_description)        
         champlistsWithoutSingers.add(barbershop.get_Championship_Object(champ_description,year,champlink))
     else:
-        percentComplete = 100*withQuartettersCount/(1+float(re.sub("[^0-9^.]", "", latestYearRecorded))-float(re.sub("[^0-9^.]", "", earliestYearRecorded)))
+        if earliestYearRecorded and latestYearRecorded:
+            percentComplete = 100*withQuartettersCount/(1+float(re.sub("[^0-9^.]", "", latestYearRecorded))-float(re.sub("[^0-9^.]", "", earliestYearRecorded)))
+        else:
+            print('No years identified: {}'.format(champ_description))
+            percentComplete = -1
         bswikihomefile.write('\n|-\n| [[{}]] || {} || {} || {:.0f}%'.format(champ_description,earliestYearRecorded,latestYearRecorded,percentComplete))
 bswikihomefile.write('\n|}')
 
@@ -303,9 +338,9 @@ for quartet in barbershop.Quartet.quartets_dict.values():
         district = '' #=== District ===\nRepresents the [[Southwestern District]].
         recordings = "\n\n== Recordings ==\n\n''Please check a database like freedb.org for relevant discography.''"
         xmloutfile.write(recordings)
-        tracks = '\n\n{{| class="wikitable" border="1" ! ''''Album Title'''' (19xx) || ''''Album Title II'''' (19xx)\n|-\n| Track title 1 of 5 || Track title 1 of 3\n|-\n| Track title 2 of 5 || Track title 2 of 3\n|-\n| Track title 3 of 5 || Track title 3 of 3\n|-\n| Track title 4 of 5 || \n|-\n| Track title 5 of 5 || '
+        tracks = '\n\n=== Album Title (19xx) ===\n{| class="wikitable sortable" border="1" \n! ''''Track''''\n! ''''Title''''\n|-\n| 1 || Track title 1 of 5\n|-\n| 2 || Track title 2 of 5\n|-\n| 3 || Track title 3 of 5\n|-\n| 4 || Track title 4 of 5\n|-\n| 5 || Track title 5 of 5 '
         xmloutfile.write(tracks)
-        xmloutfile.write('\n|}}')
+        xmloutfile.write('\n|}')
         members = '\n\n= Members ='
         xmloutfile.write(members)
         if len(quartet.championships)>0:
@@ -322,7 +357,7 @@ for quartet in barbershop.Quartet.quartets_dict.values():
         otherMembers = '\n== Other Members =='
         xmloutfile.write(otherMembers)
         #loop for remaining members associated with this quartet
-        categories = '\n\n[[Category:Quartets]]'
+        categories = '\n\n[[Category:Quartets]][[Category:Stub]]'
         xmloutfile.write(categories)
         #get unique values and print categories
         champcat = []
@@ -436,19 +471,11 @@ with open('potentialDisambiguation.txt','w') as disambout:
         topten = topten+1
 disambout.close()
 
-#==============================================================================
-# for quartet in barbershop.Quartet.quartets_dict.values():
-#     if quartet.has_four_parts():
-#         print('{}:\n\t{}, {}, {}, {}'.format(quartet.title,quartet.tenor.name,quartet.lead.name,quartet.bari.name,quartet.bass.name))
-#==============================================================================
-
 #Write each quartet that has any singers identified
 with open('fullQuartetList.txt','w') as fullQuartetList:
     for quartet in sorted(barbershop.Quartet.quartets_dict.values(), key=lambda x: x.title):
         fullQuartetList.write('\n\n[[{}]] has {} members:'.format(quartet.title,len(quartet.members)))
         if len(quartet.members)>0:
-            #print('[[{}]] has {} members:'.format(quartet.title,len(quartet.members)))
-            #TODO: print all four parts comma-separated to easily place in champion lists
             for quartetter in quartet.members:
                 fullQuartetList.write('\n*{} - {} ('.format(quartetter.part, quartetter.name))
                 counter = 0;
